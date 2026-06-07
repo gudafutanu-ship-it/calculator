@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>シンプル電卓</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<meta name="theme-color" content="#222222">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="電卓">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  background: #111;
+  color: #fff;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: linear-gradient(180deg, #202020, #050505);
+}
+
+.title {
+  text-align: center;
+  font-size: 18px;
+  opacity: 0.75;
+  margin-top: 12px;
+}
+
+.display-area {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 20px 6px 18px;
+}
+
+#display {
+  width: 100%;
+  min-height: 86px;
+  font-size: clamp(44px, 13vw, 68px);
+  line-height: 1.1;
+  text-align: right;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  color: #fff;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding-bottom: 18px;
+}
+
+button {
+  height: 72px;
+  border: none;
+  border-radius: 22px;
+  font-size: 30px;
+  font-weight: 500;
+  color: #fff;
+  background: #333;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:active {
+  transform: scale(0.96);
+  filter: brightness(1.25);
+}
+
+.func {
+  background: #a5a5a5;
+  color: #111;
+}
+
+.op {
+  background: #ff9f0a;
+}
+
+.zero {
+  grid-column: span 2;
+  text-align: left;
+  padding-left: 30px;
+}
+
+.footer {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.45;
+  padding-bottom: 6px;
+}
+
+@media (max-height: 680px) {
+  button {
+    height: 60px;
+    border-radius: 18px;
+  }
+  .display-area {
+    padding-bottom: 10px;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+  <div class="title">シンプル電卓</div>
+
+  <div class="display-area">
+    <div id="display">0</div>
+  </div>
+
+  <div class="buttons">
+    <button class="func" onclick="clearAll()">C</button>
+    <button class="func" onclick="toggleSign()">±</button>
+    <button class="func" onclick="percent()">%</button>
+    <button class="op" onclick="pressOp('÷')">÷</button>
+
+    <button onclick="pressNum('7')">7</button>
+    <button onclick="pressNum('8')">8</button>
+    <button onclick="pressNum('9')">9</button>
+    <button class="op" onclick="pressOp('×')">×</button>
+
+    <button onclick="pressNum('4')">4</button>
+    <button onclick="pressNum('5')">5</button>
+    <button onclick="pressNum('6')">6</button>
+    <button class="op" onclick="pressOp('−')">−</button>
+
+    <button onclick="pressNum('1')">1</button>
+    <button onclick="pressNum('2')">2</button>
+    <button onclick="pressNum('3')">3</button>
+    <button class="op" onclick="pressOp('+')">+</button>
+
+    <button class="zero" onclick="pressNum('0')">0</button>
+    <button onclick="pressDot()">.</button>
+    <button class="op" onclick="calculate()">=</button>
+  </div>
+
+  <div class="footer">Home Screen 対応</div>
+</div>
+
+<script>
+const display = document.getElementById("display");
+
+let current = "0";
+let previous = null;
+let operator = null;
+let waitingForNext = false;
+
+function updateDisplay() {
+  display.textContent = current;
+}
+
+function pressNum(num) {
+  if (waitingForNext) {
+    current = num;
+    waitingForNext = false;
+  } else {
+    current = current === "0" ? num : current + num;
+  }
+  updateDisplay();
+}
+
+function pressDot() {
+  if (waitingForNext) {
+    current = "0.";
+    waitingForNext = false;
+  } else if (!current.includes(".")) {
+    current += ".";
+  }
+  updateDisplay();
+}
+
+function clearAll() {
+  current = "0";
+  previous = null;
+  operator = null;
+  waitingForNext = false;
+  updateDisplay();
+}
+
+function toggleSign() {
+  if (current === "0") return;
+  current = current.startsWith("-") ? current.slice(1) : "-" + current;
+  updateDisplay();
+}
+
+function percent() {
+  current = String(parseFloat(current) / 100);
+  updateDisplay();
+}
+
+function pressOp(op) {
+  if (operator && !waitingForNext) {
+    calculate();
+  }
+  previous = parseFloat(current);
+  operator = op;
+  waitingForNext = true;
+}
+
+function calculate() {
+  if (operator === null || previous === null) return;
+
+  const a = previous;
+  const b = parseFloat(current);
+  let result;
+
+  if (operator === "+") result = a + b;
+  if (operator === "−") result = a - b;
+  if (operator === "×") result = a * b;
+  if (operator === "÷") {
+    if (b === 0) {
+      current = "エラー";
+      previous = null;
+      operator = null;
+      waitingForNext = true;
+      updateDisplay();
+      return;
+    }
+    result = a / b;
+  }
+
+  current = formatNumber(result);
+  previous = null;
+  operator = null;
+  waitingForNext = true;
+  updateDisplay();
+}
+
+function formatNumber(num) {
+  if (!isFinite(num)) return "エラー";
+  const rounded = Math.round((num + Number.EPSILON) * 10000000000) / 10000000000;
+  return String(rounded);
+}
+
+// キーボード入力にも対応
+document.addEventListener("keydown", (e) => {
+  if (e.key >= "0" && e.key <= "9") pressNum(e.key);
+  if (e.key === ".") pressDot();
+  if (e.key === "+") pressOp("+");
+  if (e.key === "-") pressOp("−");
+  if (e.key === "*") pressOp("×");
+  if (e.key === "/") pressOp("÷");
+  if (e.key === "Enter" || e.key === "=") calculate();
+  if (e.key === "Escape") clearAll();
+  if (e.key === "Backspace") {
+    current = current.length > 1 ? current.slice(0, -1) : "0";
+    updateDisplay();
+  }
+});
+
+updateDisplay();
+</script>
+</body>
+</html>
